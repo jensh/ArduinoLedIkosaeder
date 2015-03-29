@@ -29,9 +29,9 @@ void set_tri(uint8_t lo_hi, uint8_t in_out) {
 
 
 void loop() {
-	set_tri(B00000000, B11111111); // All lo
+	set_tri(B11110000, B11111111); // hi and lo
 	delay(1000);
-	set_tri(B11111111, B11111111); // All hi
+	set_tri(B00001111, B11111111); // lo and hi
 	delay(1000);
 	set_tri(B00000000, B00000000); // All tri-state
 	delay(1000);
