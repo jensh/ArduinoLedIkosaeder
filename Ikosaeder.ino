@@ -5,13 +5,20 @@
 // build a lo, hi, tri-state matrix.
 // (Ikosaeder uses only 7 bits: (0 D6 D5 D4 D3 D2 D9 D8)
 
+static
+void help(void);
 
 void setup() {
 	// Setup D2 - D9 as Input
 	for (int8_t i = 2; i <= 9; i++) {
 		pinMode(i, INPUT);
 	}
+
+	Serial.begin(115200);
+	// Serial.begin(9600);
+	help();
 }
+
 
 #ifndef HOST_TEST
 // Set (D7 D6 D5 D4 D3 D2 D9 D8) to lo, hi or tri-state
@@ -66,6 +73,112 @@ void tri_loop(uint8_t nbits) {
 }
 
 
+int cmd_number = 0;
+int cmd_number2 = 0;
+bool cmd_number_set = false;
+bool cmd_number_neg = false;
+
+#define ANIMATION0_TRILOOP 0
+#define ANIMATION1_NONE 1
+int animation = 0;
+int num_pins = 7;
+
+static
+void help(void) {
+	Serial.println("\nIkosaeder controller.");
+
+	Serial.println("? : Help");
+	Serial.println("<num>a : Set animation");
+	Serial.println("<led number>s : Switch on led");
+	Serial.println("[<in_out mask>,]<lo_hi mask>t : Set tri-state");
+	Serial.println("[<num>]# : number of used pins");
+}
+
+static
+void SerialComm(void) {
+	while (Serial.available()) {
+		bool number_cmd = false;
+		uint8_t cmd;
+
+		cmd = Serial.read();
+
+		switch (cmd) {
+		case 'a': // Animation cmd_number
+			if (cmd_number_set) {
+				animation = cmd_number;
+			} else {
+				Serial.print(animation); Serial.write('a');
+			}
+			break;
+		case 's':
+			set_tri_led(num_pins, cmd_number);
+			animation = ANIMATION1_NONE;
+			break;
+		case 't':
+			set_tri(cmd_number, cmd_number2);
+			animation = ANIMATION1_NONE;
+			break;
+		case '#':
+			if (cmd_number_set) {
+				num_pins = cmd_number;
+			} else {
+				Serial.print(num_pins); Serial.write('#');
+			}
+			break;
+		case ',':
+			cmd_number2 = cmd_number;
+			break;
+		case '?':
+			help();
+			break;
+		case '-':
+			// Set cmd_number negative
+			cmd_number_neg = true;
+			cmd_number = 0;
+			number_cmd = true;
+			break;
+		case '0'...'9':
+			// Set cmd_number
+			cmd_number *= 10;
+			cmd_number += cmd_number_neg ? '0' - cmd : cmd - '0';
+			cmd_number_set = true;
+			number_cmd = true;
+			break;
+		case '\n': // LF (VT102: ^j)
+			Serial.print("\r\n");
+			break;
+		case '\r': // CR (VT102: ^m or Enter)
+			Serial.print("\r\n");
+			break;
+		default:
+			Serial.println("Unknown cmd.");
+			Serial.println("Expect one of '-0123456789,?ast#'");
+			break;
+		}
+
+		if (!number_cmd) {
+			cmd_number = 0;
+			cmd_number_set = false;
+			cmd_number_neg = false;
+		}
+	}
+}
+
+
 void loop() {
-	tri_loop(7);
+	switch (animation) {
+	case ANIMATION0_TRILOOP:
+		tri_loop(7);
+		break;
+	case ANIMATION1_NONE:
+		// Nothing. Keep state.
+		break;
+	default:
+		Serial.print("\"Unknown animation ");
+		Serial.print(animation);
+		Serial.println(". Using 0 now.\"");
+		animation = ANIMATION0_TRILOOP;
+		break;
+	}
+	SerialComm();
 }
