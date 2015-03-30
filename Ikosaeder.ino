@@ -111,7 +111,11 @@ void SerialComm(void) {
 			}
 			break;
 		case 's':
-			set_tri_led(num_pins, cmd_number);
+			if (cmd_number_set) {
+				set_tri_led(num_pins, cmd_number);
+			} else {
+				set_tri(0, 0); // All input. (Switch off)
+			}
 			animation = ANIMATION1_NONE;
 			break;
 		case 't':
@@ -168,7 +172,7 @@ void SerialComm(void) {
 void loop() {
 	switch (animation) {
 	case ANIMATION0_TRILOOP:
-		tri_loop(7);
+		tri_loop(num_pins);
 		break;
 	case ANIMATION1_NONE:
 		// Nothing. Keep state.
