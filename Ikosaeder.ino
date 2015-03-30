@@ -1,6 +1,9 @@
 //					-*- c++ -*-
 // (c) 2015-03-29 Jens Hauke <jens.hauke@4k2.de>
-
+//
+// With (D7 D6 D5 D4 D3 D2 D9 D8)
+// build a lo, hi, tri-state matrix.
+// (Ikosaeder uses only 7 bits: (0 D6 D5 D4 D3 D2 D9 D8)
 
 
 void setup() {
@@ -11,7 +14,7 @@ void setup() {
 }
 
 #ifndef HOST_TEST
-// Set (D7 D6 D5 D4 D3 D9 D8) to lo, hi or tri-state
+// Set (D7 D6 D5 D4 D3 D2 D9 D8) to lo, hi or tri-state
 void set_tri(uint8_t lo_hi, uint8_t in_out) {
 	uint8_t portb, portd, ddrb, ddrd;
 	// Keep the state of the unused pins
@@ -58,11 +61,11 @@ void tri_loop(uint8_t nbits) {
 	int i;
 	for (i = 0; i < count; i++) {
 		set_tri_led(nbits, i);
-		delay(100);
+		delay(5);
 	}
 }
 
 
 void loop() {
-	tri_loop(8);
+	tri_loop(7);
 }
