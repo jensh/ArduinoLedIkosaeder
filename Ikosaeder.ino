@@ -10,7 +10,7 @@ void setup() {
 	}
 }
 
-
+#ifndef HOST_TEST
 // Set (D7 D6 D5 D4 D3 D9 D8) to lo, hi or tri-state
 void set_tri(uint8_t lo_hi, uint8_t in_out) {
 	uint8_t portb, portd, ddrb, ddrd;
@@ -26,13 +26,43 @@ void set_tri(uint8_t lo_hi, uint8_t in_out) {
 	PORTD = portd;
 	DDRD = ddrd;
 }
+#endif
 
-
-void loop() {
+void blink_hi_lo() {
 	set_tri(B11110000, B11111111); // hi and lo
 	delay(1000);
 	set_tri(B00001111, B11111111); // lo and hi
 	delay(1000);
 	set_tri(B00000000, B00000000); // All tri-state
 	delay(1000);
+}
+
+
+// Switch on @led. Using @nbits Pins.
+void set_tri_led(uint8_t nbits, int led) {
+	uint8_t lo_bit = led / (nbits - 1);
+	uint8_t hi_bit = (led + lo_bit) % (nbits - 1);
+	if (hi_bit >= lo_bit) hi_bit++;
+
+	// bit pos to bitmask:
+	lo_bit = 1 << lo_bit;
+	hi_bit = 1 << hi_bit;
+
+	// Hi: only hi_bit, Output: lo_bit and hi_bit
+	set_tri(hi_bit, lo_bit | hi_bit);
+}
+
+
+void tri_loop(uint8_t nbits) {
+	int count = nbits * (nbits - 1);
+	int i;
+	for (i = 0; i < count; i++) {
+		set_tri_led(nbits, i);
+		delay(100);
+	}
+}
+
+
+void loop() {
+	tri_loop(8);
 }
