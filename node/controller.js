@@ -5,6 +5,7 @@
 //
 
 var serialPort = require("serialport");
+
 // Docu:  https://www.npmjs.com/package/serialport
 
 //var serialDevicePath = "/dev/rfcomm2";
@@ -93,15 +94,21 @@ function communicate(callback) {
 		interval = setInterval(function () {
 			step(ikosaeder);
 		}, 100);
+
+		process.on("SIGINT", function () {
+			console.log("Bye-bye");
+			sconn.write("ss"); // Switch off
+			done();
+		});
 	});
 
 	sconn.on("error", function (err) {
-		console.log('Serialport: Error: ' + err);
+		console.log('Serialport: Error: ' + (err ? err : 'ok'));
 		done(err);
 	});
 
 	sconn.on("close", function (err) {
-		console.log('Serialport: Closed: ' + err);
+		console.log('Serialport: Closed: ' + (err ? err : 'ok'));
 		done(err);
 	});
 
