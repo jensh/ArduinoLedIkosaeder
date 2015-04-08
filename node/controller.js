@@ -64,6 +64,19 @@ Ikosaeder.prototype.cmd_s = function (led_num) {
 	this.sconn.write("" + (led_num|0) + "s", this.error_check);
 }
 
+Ikosaeder.prototype.cmd_t = function (lo_hi, in_out) {
+	// Set (D7 D6 D5 D4 D3 D2 D9 D8) to lo, hi or tri-state
+	this.sconn.write("" + (in_out|0) + "," + (lo_hi|0) + "t", this.error_check);
+}
+
+Ikosaeder.prototype.cmd_f = function (pin_lo, pin_hi) {
+	// route from pin_lo (-) to pin_hi (+)
+	var lo_hi = 1 << pin_hi;
+	var in_out = lo_hi | 1 << pin_lo;
+
+	this.cmd_t(lo_hi, in_out);
+}
+
 
 function communicate(callback) {
 	/* Open */
@@ -93,7 +106,7 @@ function communicate(callback) {
 
 		interval = setInterval(function () {
 			step(ikosaeder);
-		}, 100);
+		}, INTERVAL);
 
 		process.on("SIGINT", function () {
 			console.log("Bye-bye");
@@ -141,14 +154,29 @@ parser.set_Z = function () {
 	// console.log(JSON.stringify(parser.values, null, '\t'));
 };
 
-
+var INTERVAL = 30;
 var num = 0;
-function step(ikosaeder) {
-	ikosaeder.cmd_s(num);
+var sequence = [
+	//	[0, 1], [1, 6], [1, 2], [2, 6], [2, 0], [0, 6] // level 0
+	//	[1, 0], [3, 0], [1, 3],     [2, 1], [4, 1], [2, 4],    [0, 2], [5, 2], [0, 5], // level 1
+	// [4, 0], [4, 2], [2, 5]
 
+	[0, 6], // level 0
+	[0, 1], [2, 0], [0, 5], [1, 0], [3, 0], // level 1
+	[1, 6], [1, 2], [2, 6], [5, 2], [6, 5], [5, 1], [6, 1], [3, 1], [6, 3], [1, 3], // level 2
+	[2, 1], [4, 1], [2, 4], [0, 2], [5, 0], [4, 5], [1, 4], [1, 5], [5, 3], [3, 2], // level 3
+	[6, 2], [4, 2], [6, 4], [4, 0], [6, 0], [0, 4], [4, 6], [5, 4], [5, 6], [2, 5], // level 4
+	[2, 3], [3, 4], [0, 3], [4, 3], [3, 5], // level 5
+	[3, 6], // level 6
+]
+
+function step(ikosaeder) {
+	// ikosaeder.cmd_s(num);
+	ikosaeder.cmd_f(sequence[num][0], sequence[num][1]);
 	console.log('step', num);
+
 	num++;
-	if (num >= 42) num = 0;
+	if (num >= sequence.length) num = 0;
 
 }
 
