@@ -73,9 +73,9 @@ void tri_loop(uint8_t nbits) {
 }
 
 
-int cmd_number = 0;
-int cmd_number2 = 0;
-bool cmd_number_set = false;
+#define CMD_MAX_NUMBERS 3
+int cmd_number[CMD_MAX_NUMBERS];
+uint8_t cmd_numbers = 0;
 bool cmd_number_neg = false;
 
 #define ANIMATION0_TRILOOP 0
@@ -90,6 +90,7 @@ void help(void) {
 	Serial.println("? : Help");
 	Serial.println("<num>a : Set animation");
 	Serial.println("<led number>s : Switch on led");
+	delay(200);
 	Serial.println("[<in_out mask>,]<lo_hi mask>t : Set tri-state");
 	Serial.println("[<num>]# : number of used pins");
 }
@@ -104,33 +105,42 @@ void SerialComm(void) {
 
 		switch (cmd) {
 		case 'a': // Animation cmd_number
-			if (cmd_number_set) {
-				animation = cmd_number;
+			if (cmd_numbers) {
+				animation = cmd_number[0];
 			} else {
 				Serial.print(animation); Serial.write('a');
 			}
 			break;
 		case 's':
-			if (cmd_number_set) {
-				set_tri_led(num_pins, cmd_number);
+			if (cmd_numbers) {
+				set_tri_led(num_pins, cmd_number[0]);
 			} else {
 				set_tri(0, 0); // All input. (Switch off)
 			}
 			animation = ANIMATION1_NONE;
 			break;
 		case 't':
-			set_tri(cmd_number, cmd_number2);
+			set_tri(cmd_number[1], cmd_number[0]);
 			animation = ANIMATION1_NONE;
 			break;
 		case '#':
-			if (cmd_number_set) {
-				num_pins = cmd_number;
+			if (cmd_numbers) {
+				num_pins = cmd_number[0];
 			} else {
 				Serial.print(num_pins); Serial.write('#');
 			}
 			break;
+		case 'p': // debug cmd_numbers
+			Serial.print(cmd_numbers); Serial.write(',');
+			Serial.print(cmd_number[0]); Serial.write(',');
+			Serial.print(cmd_number[1]); Serial.write(',');
+			Serial.print(cmd_number[2]); Serial.write('p');
+			break;
 		case ',':
-			cmd_number2 = cmd_number;
+			cmd_number[cmd_numbers] = 0;
+			if (cmd_numbers < CMD_MAX_NUMBERS) cmd_numbers++;
+			cmd_number_neg = false;
+			number_cmd = true;
 			break;
 		case '?':
 			help();
@@ -138,14 +148,16 @@ void SerialComm(void) {
 		case '-':
 			// Set cmd_number negative
 			cmd_number_neg = true;
-			cmd_number = 0;
 			number_cmd = true;
 			break;
 		case '0'...'9':
 			// Set cmd_number
-			cmd_number *= 10;
-			cmd_number += cmd_number_neg ? '0' - cmd : cmd - '0';
-			cmd_number_set = true;
+			if (!cmd_numbers) {
+				cmd_number[0] = 0;
+				cmd_numbers = 1;
+			}
+			cmd_number[cmd_numbers - 1] *= 10;
+			cmd_number[cmd_numbers - 1] += cmd_number_neg ? '0' - cmd : cmd - '0';
 			number_cmd = true;
 			break;
 		case '\n': // LF (VT102: ^j)
@@ -161,8 +173,7 @@ void SerialComm(void) {
 		}
 
 		if (!number_cmd) {
-			cmd_number = 0;
-			cmd_number_set = false;
+			cmd_numbers = 0;
 			cmd_number_neg = false;
 		}
 	}
