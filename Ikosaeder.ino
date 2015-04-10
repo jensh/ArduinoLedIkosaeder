@@ -73,6 +73,41 @@ void tri_loop(uint8_t nbits) {
 }
 
 
+uint8_t led_map[8] = { 255, 255, 255, 255, 255, 255, 255, 255 };
+uint8_t led_pos = 0;
+uint16_t led_delay = 0;
+
+void led_map_step(void) {
+	uint8_t cnt = 0;
+	uint8_t lmap;
+	uint8_t lopin_mask;
+	while (!((lmap = led_map[led_pos]))) {
+		if (cnt++ >= 8) {
+			 // empty map. Switch off.
+			set_tri(0, 0);
+			return;
+		}
+		led_pos = (led_pos + 1) & 7;
+	}
+	lopin_mask = 1 << led_pos;
+	set_tri(lmap & ~lopin_mask, lmap | lopin_mask);
+	led_pos = (led_pos + 1) & 7;
+	if (led_delay) delay(led_delay);
+}
+
+
+void led_map_set(uint8_t row, uint8_t mask) {
+	led_map[row & 7] = mask; // bit @row must be set to 0!
+}
+
+void led_map_dump() {
+	uint8_t i;
+	for (i = 0; i < 8; i++) {
+		Serial.print(i); Serial.write(','); Serial.print(led_map[i]); Serial.write("m\r\n");
+	}
+}
+
+
 #define CMD_MAX_NUMBERS 3
 int cmd_number[CMD_MAX_NUMBERS];
 uint8_t cmd_numbers = 0;
@@ -80,6 +115,8 @@ bool cmd_number_neg = false;
 
 #define ANIMATION0_TRILOOP 0
 #define ANIMATION1_NONE 1
+#define ANIMATION2_LEDMAP 2
+
 int animation = 0;
 int num_pins = 7;
 
@@ -90,9 +127,11 @@ void help(void) {
 	Serial.println("? : Help");
 	Serial.println("<num>a : Set animation");
 	Serial.println("<led number>s : Switch on led");
+	Serial.println("[<num>]# : number of used pins for s");
 	delay(200);
 	Serial.println("[<in_out mask>,]<lo_hi mask>t : Set tri-state");
-	Serial.println("[<num>]# : number of used pins");
+	Serial.println("<row>,<mask>m : led map");
+	Serial.println("<delay>d : delay for each led map row");
 }
 
 static
@@ -128,6 +167,22 @@ void SerialComm(void) {
 				num_pins = cmd_number[0];
 			} else {
 				Serial.print(num_pins); Serial.write('#');
+			}
+			break;
+		case 'd': // led delay for ledmap <delay>
+			if (cmd_numbers) {
+				led_delay = cmd_number[0];
+			} else {
+				Serial.print(led_delay); Serial.write('d');
+			}
+			break;
+		case 'm': // set map <row>, <mask>
+			if (cmd_numbers) {
+				led_map_set(cmd_number[0], cmd_number[1]);
+				animation = ANIMATION2_LEDMAP;
+			} else {
+				// dump map
+				led_map_dump();
 			}
 			break;
 		case 'p': // debug cmd_numbers
@@ -168,7 +223,7 @@ void SerialComm(void) {
 			break;
 		default:
 			Serial.println("Unknown cmd.");
-			Serial.println("Expect one of '-0123456789,?ast#'");
+			Serial.println("Expect one of '-0123456789,?admst#'");
 			break;
 		}
 
@@ -187,6 +242,9 @@ void loop() {
 		break;
 	case ANIMATION1_NONE:
 		// Nothing. Keep state.
+		break;
+	case ANIMATION2_LEDMAP:
+		led_map_step();
 		break;
 	default:
 		Serial.print("\"Unknown animation ");
