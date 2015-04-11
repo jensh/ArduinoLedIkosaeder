@@ -38,12 +38,48 @@ void set_tri(uint8_t lo_hi, uint8_t in_out) {
 	cout << "set_tri " << binary(lo_hi) << " " << binary(in_out) << endl;
 }
 
+class ASerial {
+public:
+	template <typename T>
+	void print(T i) {
+		cout << i;
+	};
+
+	template <typename T>
+	void println(T i) {
+		cout << i << endl;
+	};
+
+	template <typename T>
+	void write(T val) {
+		cout << val;
+	};
+
+	bool available(void) {
+		return false;
+	}
+
+	char read(void) {
+		return -1;
+	}
+};
+
+ASerial Serial;
+
+unsigned long millis_now = 0;
+unsigned long millis(void) {
+	return millis_now++;
+}
+
 #include "Ikosaeder.ino"
 
 
 int main(int argc, char **argv)
 {
-	loop();
+	for (int i = 0; i < 100; i++) {
+		loop();
+		millis_now += 1000;
+	}
 	return 0;
 }
 
