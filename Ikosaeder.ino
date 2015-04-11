@@ -266,7 +266,7 @@ void swirl2_step(void) {
 	uint8_t p_peer_count = get_peer_count(c_id);
 
 	c_dir = (c_dir + 3) % p_peer_count;
-	if (cnt++ % 7 == 0) {
+	if (random(7) == 0) {
 		c_dir = (c_dir + (5 * 6 - 1)) % p_peer_count;
 	}
 
