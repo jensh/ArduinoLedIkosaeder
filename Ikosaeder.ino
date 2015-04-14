@@ -234,10 +234,10 @@ uint8_t get_peer_dir(uint8_t id, uint8_t dir) {
 
 
 class Walker {
+public:
 	uint8_t cur_id;
 	uint8_t cur_dir;
 
-public:
 	Walker() {
 		cur_id = 0;
 		cur_dir = 0;
@@ -289,6 +289,32 @@ void swirl_step(void) {
 	walker.show();
 }
 
+void swirl2_step(void) {
+	static unsigned long last = 0;
+	unsigned long now = millis();
+
+	if (now - last < swirl_speed) return;
+	last = now;
+
+	static Walker walker;
+	const int tail_size = 6;
+	static uint8_t pos = 0;
+	static uint8_t tail[tail_size] = {0};
+
+	// clear tail
+	led_map_led_set(tail[pos], false);
+
+	// next step show
+	walker.step(3 - (random(7) == 0 ? 1 : 0));
+	walker.show();
+
+	// set head of tail
+	tail[pos] = walker.cur_id;
+
+	// progress
+	pos = (pos + 1) % tail_size;
+}
+
 #define CMD_MAX_NUMBERS 3
 int cmd_number[CMD_MAX_NUMBERS];
 uint8_t cmd_numbers = 0;
@@ -298,8 +324,9 @@ bool cmd_number_neg = false;
 #define ANIMATION1_NONE 1
 #define ANIMATION2_LEDMAP 2
 #define ANIMATION3_SWIRL 3
+#define ANIMATION4_SWIRL2 4
 
-unsigned animation = ANIMATION3_SWIRL;
+unsigned animation = ANIMATION4_SWIRL2;
 unsigned num_pins = 7;
 
 static
@@ -440,6 +467,10 @@ void loop() {
 		break;
 	case ANIMATION3_SWIRL:
 		swirl_step();
+		led_map_step();
+		break;
+	case ANIMATION4_SWIRL2:
+		swirl2_step();
 		led_map_step();
 		break;
 	default:
