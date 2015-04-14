@@ -289,6 +289,13 @@ void swirl_step(void) {
 	walker.show();
 }
 
+
+static inline
+void swirl2_init(void) {
+	led_map_clear();
+}
+
+
 void swirl2_step(void) {
 	static unsigned long last = 0;
 	unsigned long now = millis();
@@ -327,6 +334,7 @@ bool cmd_number_neg = false;
 #define ANIMATION4_SWIRL2 4
 
 unsigned animation = ANIMATION4_SWIRL2;
+unsigned last_animation = ~0;
 unsigned num_pins = 7;
 
 static
@@ -455,6 +463,16 @@ void SerialComm(void) {
 
 
 void loop() {
+	// Initialize new animation?
+	if (last_animation != animation) {
+		switch (animation) {
+		case ANIMATION4_SWIRL2:
+			swirl2_init();
+			break;
+		}
+	}
+
+	// Run animation
 	switch (animation) {
 	case ANIMATION0_TRILOOP:
 		tri_loop(num_pins);
@@ -463,6 +481,7 @@ void loop() {
 		// Nothing. Keep state.
 		break;
 	case ANIMATION2_LEDMAP:
+		// Static led map
 		led_map_step();
 		break;
 	case ANIMATION3_SWIRL:
@@ -480,5 +499,9 @@ void loop() {
 		animation = ANIMATION0_TRILOOP;
 		break;
 	}
+
+	// Process commands
 	SerialComm();
+
+	last_animation = animation;
 }
