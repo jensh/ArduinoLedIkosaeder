@@ -233,7 +233,46 @@ uint8_t get_peer_dir(uint8_t id, uint8_t dir) {
 }
 
 
-unsigned swirl_speed = 30;
+class Walker {
+	uint8_t cur_id;
+	uint8_t cur_dir;
+
+public:
+	Walker() {
+		cur_id = 0;
+		cur_dir = 0;
+	}
+
+	/* Step in direction @dir.
+	 * 0: back,
+	 * On 5 node edges:
+	 * 1: back right
+	 * 2: forward right
+	 * 3: forward left
+	 * 4: back left
+	 * On 6 node edges:
+	 * 1: back right
+	 * 2: forward right
+	 * 3: forward
+	 * 4: forward left
+	 * 5: backward left */
+	void step(uint8_t dir) {
+		uint8_t c_id = cur_id;
+		uint8_t peer_count = get_peer_count(c_id);
+
+		uint8_t abs_dir = (cur_dir + dir) % peer_count;
+
+		cur_id = get_peer(c_id, abs_dir);
+		cur_dir = get_peer_dir(c_id, abs_dir);
+	}
+
+	void show(bool visible = true) {
+		led_map_led_set(cur_id, visible);
+	}
+};
+
+
+unsigned swirl_speed = 40;
 
 void swirl_step(void) {
 	static unsigned long last = 0;
@@ -244,27 +283,11 @@ void swirl_step(void) {
 
 	led_map_clear();
 
-	static uint8_t c_id = 0;
-	static uint8_t c_dir = 0;
-	// static uint32_t cnt = 0;
+	static Walker walker;
 
-	uint8_t p_peer_count = get_peer_count(c_id);
-
-	c_dir = (c_dir + 3) % p_peer_count;
-	if (random(7) == 0) {
-		c_dir = (c_dir + (5 * 6 - 1)) % p_peer_count;
-	}
-
-	uint8_t c_id_next = get_peer(c_id, c_dir);
-	uint8_t c_dir_next = get_peer_dir(c_id, c_dir);
-
-	c_id = c_id_next;
-	c_dir = c_dir_next;
-
-	led_map_led_set(c_id, true);
+	walker.step(3 - (random(7) == 0 ? 1 : 0));
+	walker.show();
 }
-
-
 
 #define CMD_MAX_NUMBERS 3
 int cmd_number[CMD_MAX_NUMBERS];
