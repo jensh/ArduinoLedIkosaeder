@@ -233,35 +233,20 @@ uint8_t get_peer_dir(uint8_t id, uint8_t dir) {
 }
 
 
+unsigned swirl_speed = 30;
+
 void swirl_step(void) {
 	static unsigned long last = 0;
 	unsigned long now = millis();
 
-	if (now - last < 2000) return;
-	last = now;
-
-	led_map_clear();
-
-	static uint8_t c_id = 0;
-
-	led_map_led_set(c_id, true);
-
-	c_id = (c_id + 1) % 42;
-}
-
-
-void swirl2_step(void) {
-	static unsigned long last = 0;
-	unsigned long now = millis();
-
-	if (now - last < 30) return;
+	if (now - last < swirl_speed) return;
 	last = now;
 
 	led_map_clear();
 
 	static uint8_t c_id = 0;
 	static uint8_t c_dir = 0;
-	static uint32_t cnt = 0;
+	// static uint32_t cnt = 0;
 
 	uint8_t p_peer_count = get_peer_count(c_id);
 
@@ -290,10 +275,9 @@ bool cmd_number_neg = false;
 #define ANIMATION1_NONE 1
 #define ANIMATION2_LEDMAP 2
 #define ANIMATION3_SWIRL 3
-#define ANIMATION4_SWIRL2 4
 
-int animation = ANIMATION4_SWIRL2;
-int num_pins = 7;
+unsigned animation = ANIMATION3_SWIRL;
+unsigned num_pins = 7;
 
 static
 void help(void) {
@@ -307,7 +291,20 @@ void help(void) {
 	Serial.println("[<in_out mask>,]<lo_hi mask>t : Set tri-state");
 	Serial.println("<row>,<mask>m : led map");
 	Serial.println("<delay>d : delay for each led map row");
+	Serial.println("<delay>S : Swirl delay");
 }
+
+static
+void set_or_query_param(unsigned &param, char cmd) {
+	if (cmd_numbers) {
+		// Set
+		param = cmd_number[0];
+	} else {
+		// Query
+		Serial.print(param); Serial.write(cmd);
+	}
+}
+
 
 static
 void SerialComm(void) {
@@ -319,11 +316,7 @@ void SerialComm(void) {
 
 		switch (cmd) {
 		case 'a': // Animation cmd_number
-			if (cmd_numbers) {
-				animation = cmd_number[0];
-			} else {
-				Serial.print(animation); Serial.write('a');
-			}
+			set_or_query_param(animation, 'a');
 			break;
 		case 's':
 			if (cmd_numbers) {
@@ -333,23 +326,18 @@ void SerialComm(void) {
 			}
 			animation = ANIMATION1_NONE;
 			break;
+		case 'S': // swirl speed
+			set_or_query_param(swirl_speed, 'S');
+			break;
 		case 't':
 			set_tri(cmd_number[1], cmd_number[0]);
 			animation = ANIMATION1_NONE;
 			break;
-		case '#':
-			if (cmd_numbers) {
-				num_pins = cmd_number[0];
-			} else {
-				Serial.print(num_pins); Serial.write('#');
-			}
+		case '#': // Num pins
+			set_or_query_param(num_pins, '#');
 			break;
 		case 'd': // led delay for ledmap <delay>
-			if (cmd_numbers) {
-				led_delay = cmd_number[0];
-			} else {
-				Serial.print(led_delay); Serial.write('d');
-			}
+			set_or_query_param(led_delay, 'd');
 			break;
 		case 'm': // set map <row>, <mask>
 			if (cmd_numbers) {
@@ -366,14 +354,14 @@ void SerialComm(void) {
 			Serial.print(cmd_number[1]); Serial.write(',');
 			Serial.print(cmd_number[2]); Serial.write('p');
 			break;
+/*
+ *              Numbers
+ */
 		case ',':
 			cmd_number[cmd_numbers] = 0;
 			if (cmd_numbers < CMD_MAX_NUMBERS) cmd_numbers++;
 			cmd_number_neg = false;
 			number_cmd = true;
-			break;
-		case '?':
-			help();
 			break;
 		case '-':
 			// Set cmd_number negative
@@ -389,6 +377,12 @@ void SerialComm(void) {
 			cmd_number[cmd_numbers - 1] *= 10;
 			cmd_number[cmd_numbers - 1] += cmd_number_neg ? '0' - cmd : cmd - '0';
 			number_cmd = true;
+			break;
+/*
+ *              Misc
+ */
+		case '?':
+			help();
 			break;
 		case '\n': // LF (VT102: ^j)
 			Serial.print("\r\n");
@@ -423,10 +417,6 @@ void loop() {
 		break;
 	case ANIMATION3_SWIRL:
 		swirl_step();
-		led_map_step();
-		break;
-	case ANIMATION4_SWIRL2:
-		swirl2_step();
 		led_map_step();
 		break;
 	default:
