@@ -4,6 +4,8 @@
 // With (D7 D6 D5 D4 D3 D2 D9 D8)
 // build a lo, hi, tri-state matrix.
 // (Ikosaeder uses only 7 bits: (0 D6 D5 D4 D3 D2 D9 D8)
+//
+// D10: Input_pullup Taster. Animation switcher.
 
 static
 void help(void);
@@ -14,6 +16,7 @@ void setup() {
 	for (int8_t i = 2; i <= 9; i++) {
 		pinMode(i, INPUT);
 	}
+	pinMode(10, INPUT_PULLUP);
 
 	Serial.begin(115200);
 	// Serial.begin(9600);
@@ -462,6 +465,15 @@ void SerialComm(void) {
 }
 
 
+void PushButtonComm(void) {
+	if (!digitalRead(10)) {
+		animation++;
+		// poor man's debounce
+		delay(300);
+	}
+}
+
+
 void loop() {
 	// Initialize new animation?
 	if (last_animation != animation) {
@@ -502,6 +514,7 @@ void loop() {
 
 	// Process commands
 	SerialComm();
+	PushButtonComm();
 
 	last_animation = animation;
 }
