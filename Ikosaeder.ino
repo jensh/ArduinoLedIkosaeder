@@ -78,7 +78,7 @@ void tri_loop(uint8_t nbits) {
 
 uint8_t led_map[8] = { 255, 255, 255, 255, 255, 255, 255, 255 };
 uint8_t led_pos = 0;
-uint16_t led_delay = 0;
+uint16_t led_delay = 1;
 
 void led_map_step(void) {
 	uint8_t cnt = 0;
@@ -325,6 +325,75 @@ void swirl2_step(void) {
 	pos = (pos + 1) % tail_size;
 }
 
+
+/*
+ * swinging hemisphere
+ */
+struct XYZ {
+	int8_t x, y, z;
+
+	int16_t operator*(const XYZ &b) {
+		return  ((int16_t)x) * b.x +
+			((int16_t)y) * b.y +
+			((int16_t)z) * b.z;
+	}
+
+	void scale(uint8_t s) {
+		x = (((int16_t)x) * s) / 256;
+		y = (((int16_t)y) * s) / 256;
+		z = (((int16_t)z) * s) / 256;
+	}
+};
+
+static const
+XYZ koordinates[42] = {
+	{ 62, -100, 0}, { 100, 0, 62}, { 0, -100, 0}, { 31, -81, 50}, { 81, -50, 31}, { 50, -31, 81},
+	{ 50, 31, 81}, { 81, 50, 31}, { 0, -62, 100}, { 0, 62, 100}, { -31, -81, 50}, { -50, -31, 81},
+	{ 0, 0, 100}, { -50, 31, 81}, { -31, 81, 50}, { 31, 81, 50}, { -100, 0, 62}, { -62, 100, 0},
+	{ -81, -50, 31}, { -100, 0, 0}, { -81, 50, 31}, { -81, 50, -31}, { -31, 81, -50}, { 0, 100, 0},
+	{ -100, 0, -62}, { 0, 62, -100}, { -81, -50, -31}, { -50, -31, -81}, { -50, 31, -81}, { 0, 0, -100},
+	{ 50, 31, -81}, { 31, 81, -50}, { 0, -62, -100}, { 100, 0, -62}, { -31, -81, -50}, { 31, -81, -50},
+	{ 50, -31, -81}, { 81, -50, -31}, { 100, 0, 0}, { 81, 50, -31}, { -62, -100, 0}, { 62, 100, 0}};
+
+
+XYZ hemisphere_vec = {
+	50, 0, 0
+};
+float h_x = 0.0, h_y = 0.0, h_z = 0.0;
+
+void hemisphere_walk(int8_t &pos, float &a) {
+	pos = sin(a) * 65;
+	if (a > 1000) a = 0; // Limit angle range
+}
+
+void hemisphere_step(void) {
+	static unsigned long last = 0;
+	unsigned long now = millis();
+
+	if (now - last < swirl_speed) return;
+	last = now;
+
+
+	uint8_t id;
+
+	int16_t size = hemisphere_vec * hemisphere_vec;
+
+	for (id = 0; id < 42; id++) {
+		const XYZ &koor = koordinates[id];
+		int16_t sum = hemisphere_vec * koor;
+
+		led_map_led_set(id, sum > size);
+	}
+
+	hemisphere_walk(hemisphere_vec.x, h_x);
+	hemisphere_walk(hemisphere_vec.y, h_y);
+	hemisphere_walk(hemisphere_vec.z, h_z);
+	h_x += 0.26;
+	h_y += 0.2712;
+	h_z += 0.28312;
+}
+
+
 #define CMD_MAX_NUMBERS 3
 int cmd_number[CMD_MAX_NUMBERS];
 uint8_t cmd_numbers = 0;
@@ -335,8 +404,9 @@ bool cmd_number_neg = false;
 #define ANIMATION2_LEDMAP 2
 #define ANIMATION3_SWIRL 3
 #define ANIMATION4_SWIRL2 4
+#define ANIMATION5_HEMISPHERE 5
 
-unsigned animation = ANIMATION4_SWIRL2;
+unsigned animation = ANIMATION5_HEMISPHERE; // ANIMATION4_SWIRL2;
 unsigned last_animation = ~0;
 unsigned num_pins = 7;
 
@@ -415,6 +485,20 @@ void SerialComm(void) {
 			Serial.print(cmd_number[0]); Serial.write(',');
 			Serial.print(cmd_number[1]); Serial.write(',');
 			Serial.print(cmd_number[2]); Serial.write('p');
+			break;
+		case 'h': // Set/ query hemisphere_vec
+			switch (cmd_numbers) {
+			default:
+			case 3: hemisphere_vec.z = cmd_number[2];
+			case 2: hemisphere_vec.y = cmd_number[1];
+			case 1: hemisphere_vec.x = cmd_number[0];
+				break;
+			case 0:
+				Serial.print(hemisphere_vec.x); Serial.write(',');
+				Serial.print(hemisphere_vec.y); Serial.write(',');
+				Serial.print(hemisphere_vec.z); Serial.write('h');
+				break;
+			}
 			break;
 /*
  *              Numbers
@@ -505,6 +589,10 @@ void loop() {
 		swirl2_step();
 		led_map_step();
 		break;
+	case ANIMATION5_HEMISPHERE:
+		hemisphere_step();
+		led_map_step();
+		break;
 	default:
 		Serial.print("\"Unknown animation ");
 		Serial.print(animation);
@@ -513,9 +601,9 @@ void loop() {
 		break;
 	}
 
+	last_animation = animation;
+
 	// Process commands
 	SerialComm();
 	PushButtonComm();
-
-	last_animation = animation;
 }
