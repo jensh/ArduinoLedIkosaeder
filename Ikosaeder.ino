@@ -402,11 +402,11 @@ bool cmd_number_neg = false;
 #define ANIMATION0_TRILOOP 0
 #define ANIMATION1_NONE 1
 #define ANIMATION2_LEDMAP 2
-#define ANIMATION3_SWIRL 3
-#define ANIMATION4_SWIRL2 4
+#define ANIMATION3_SWIRL2 3
+#define ANIMATION4_SWIRL 4
 #define ANIMATION5_HEMISPHERE 5
 
-unsigned animation = ANIMATION5_HEMISPHERE; // ANIMATION4_SWIRL2;
+unsigned animation = ANIMATION3_SWIRL2;
 unsigned last_animation = ~0;
 unsigned num_pins = 7;
 
@@ -563,7 +563,7 @@ void loop() {
 	// Initialize new animation?
 	if (last_animation != animation) {
 		switch (animation) {
-		case ANIMATION4_SWIRL2:
+		case ANIMATION3_SWIRL2:
 			swirl2_init();
 			break;
 		}
@@ -581,12 +581,12 @@ void loop() {
 		// Static led map
 		led_map_step();
 		break;
-	case ANIMATION3_SWIRL:
-		swirl_step();
+	case ANIMATION3_SWIRL2:
+		swirl2_step();
 		led_map_step();
 		break;
-	case ANIMATION4_SWIRL2:
-		swirl2_step();
+	case ANIMATION4_SWIRL:
+		swirl_step();
 		led_map_step();
 		break;
 	case ANIMATION5_HEMISPHERE:
