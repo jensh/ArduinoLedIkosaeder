@@ -387,6 +387,7 @@ void SerialComm(void) {
 			}
 			animation = ANIMATION1_NONE;
 			break;
+		case 'c':
 		case 'S': // swirl speed
 			set_or_query_param(swirl_speed, 'S');
 			break;
@@ -453,7 +454,7 @@ void SerialComm(void) {
 			break;
 		default:
 			Serial.println("Unknown cmd.");
-			Serial.println("Expect one of '-0123456789,?admst#'");
+			Serial.println("Expect one of '-0123456789,?admpsSt#'");
 			break;
 		}
 
