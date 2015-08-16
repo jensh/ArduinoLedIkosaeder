@@ -5,22 +5,66 @@
 // build a lo, hi, tri-state matrix.
 // (Ikosaeder uses only 7 bits: (0 D6 D5 D4 D3 D2 D9 D8)
 //
-// D10: Input_pullup Taster. Animation switcher.
-
-static
-void help(void);
+// D10: Animation switcher.
+//      Input pull up switch. Require external pull down. Switch has to pull to Vcc.
+// D11: Power output. HIGH: on, LOW: off (Auto off feature)
 
 #ifndef HOST_TEST
+
+#define PIN11_POWER	11 /* Out: Power switch for auto off */
+#define PIN10_ANIMATION	10 /* In: Animation switch and power on */
+#define AUTOOFF_DELAY_MS 60000 /* auto power off after this time */
+
 void setup() {
 	// Setup D2 - D9 as Input
 	for (int8_t i = 2; i <= 9; i++) {
 		pinMode(i, INPUT);
 	}
-	pinMode(10, INPUT_PULLUP);
+	pinMode(PIN10_ANIMATION, INPUT);
+	autooff_init();
 
 	Serial.begin(115200);
 	// Serial.begin(9600);
 	help();
+}
+
+/*
+ * Auto off
+ */
+static
+unsigned long autooff_at_ms = 0;
+
+
+// Keep alive ping. Stay on for further AUTOOFF_DELAY_MS ms.
+static
+void autooff_ping(void) {
+	autooff_at_ms = millis() + AUTOOFF_DELAY_MS;
+}
+
+
+static
+void autooff_init(void) {
+	pinMode(PIN11_POWER, OUTPUT);
+	digitalWrite(PIN11_POWER, HIGH);
+	autooff_ping();
+}
+
+
+// Power off, now.
+static inline
+void autooff_off(void) {
+	digitalWrite(PIN11_POWER, LOW);
+}
+
+
+// Check for timeout to power off.
+static
+void autooff_check(void) {
+	// Timeout to auto power off? Unsigned long calculation!
+	if (autooff_at_ms - millis() >= (unsigned long) AUTOOFF_DELAY_MS) {
+		// Power off, but keep running
+		autooff_off();
+	}
 }
 
 
@@ -443,6 +487,8 @@ void SerialComm(void) {
 		bool number_cmd = false;
 		uint8_t cmd;
 
+		autooff_ping();
+
 		cmd = Serial.read();
 
 		switch (cmd) {
@@ -551,8 +597,9 @@ void SerialComm(void) {
 
 
 void PushButtonComm(void) {
-	if (!digitalRead(10)) {
+	if (digitalRead(PIN10_ANIMATION)) {
 		animation++;
+		autooff_ping();
 		// poor man's debounce
 		delay(300);
 	}
@@ -606,4 +653,5 @@ void loop() {
 	// Process commands
 	SerialComm();
 	PushButtonComm();
+	autooff_check();
 }
