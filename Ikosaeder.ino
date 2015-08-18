@@ -6,7 +6,7 @@
 // (Ikosaeder uses only 7 bits: (0 D6 D5 D4 D3 D2 D9 D8)
 //
 // D10: Animation switcher.
-//      Input pull up switch. Require external pull down. Switch has to pull to Vcc.
+//      Input, pull up switch. Connect to GND.
 // D11: Power output. HIGH: on, LOW: off (Auto off feature)
 
 #ifndef HOST_TEST
@@ -20,7 +20,7 @@ void setup() {
 	for (int8_t i = 2; i <= 9; i++) {
 		pinMode(i, INPUT);
 	}
-	pinMode(PIN10_ANIMATION, INPUT);
+	pinMode(PIN10_ANIMATION, INPUT_PULLUP);
 	autooff_init();
 
 	Serial.begin(115200);
@@ -597,7 +597,7 @@ void SerialComm(void) {
 
 
 void PushButtonComm(void) {
-	if (digitalRead(PIN10_ANIMATION)) {
+	if (!digitalRead(PIN10_ANIMATION)) {
 		animation++;
 		autooff_ping();
 		// poor man's debounce
