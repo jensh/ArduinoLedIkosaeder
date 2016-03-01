@@ -1,5 +1,6 @@
 //					-*- c++ -*-
 // (c) 2015-03-29 Jens Hauke <jens.hauke@4k2.de>
+// (c) 2016-03-01 Jens Hauke <jens.hauke@4k2.de>
 //
 // With (D7 D6 D5 D4 D3 D2 D9 D8)
 // build a lo, hi, tri-state matrix.
@@ -36,13 +37,11 @@ unsigned long autooff_at_ms = 0;
 
 
 // Keep alive ping. Stay on for further AUTOOFF_DELAY_MS ms.
-static
 void autooff_ping(void) {
 	autooff_at_ms = millis() + AUTOOFF_DELAY_MS;
 }
 
 
-static
 void autooff_init(void) {
 	pinMode(PIN11_POWER, OUTPUT);
 	digitalWrite(PIN11_POWER, HIGH);
@@ -51,14 +50,13 @@ void autooff_init(void) {
 
 
 // Power off, now.
-static inline
+inline
 void autooff_off(void) {
 	digitalWrite(PIN11_POWER, LOW);
 }
 
 
 // Check for timeout to power off.
-static
 void autooff_check(void) {
 	// Timeout to auto power off? Unsigned long calculation!
 	if (autooff_at_ms - millis() >= (unsigned long) AUTOOFF_DELAY_MS) {
@@ -148,6 +146,16 @@ void led_map_set(uint8_t row, uint8_t mask) {
 }
 
 
+void led_map_led_set2(uint8_t row, uint8_t bit, bool on = true) {
+	row = row & 7;
+	if (on) {
+		led_map[row] |= 1 << bit;
+	} else {
+		led_map[row] &= ~(1 << bit);
+	}
+}
+
+
 void led_map_led_set(uint8_t led_id, bool on = true) {
 	static struct Mapping {
 		unsigned row : 3;
@@ -200,11 +208,7 @@ void led_map_led_set(uint8_t led_id, bool on = true) {
 #ifdef HOST_TEST
 	cout << "Led " << (int)led_id << " mapping: " << mapping[led_id].row <<  ", " << mapping[led_id].bit << endl;
 #endif
-	if (on) {
-		led_map[mapping[led_id].row] |= 1 << mapping[led_id].bit;
-	} else {
-		led_map[mapping[led_id].row] &= ~(1 << mapping[led_id].bit);
-	}
+	led_map_led_set2(mapping[led_id].row, mapping[led_id].bit, on);
 }
 
 
@@ -337,7 +341,7 @@ void swirl_step(void) {
 }
 
 
-static inline
+inline
 void swirl2_init(void) {
 	led_map_clear();
 }
@@ -443,18 +447,19 @@ int cmd_number[CMD_MAX_NUMBERS];
 uint8_t cmd_numbers = 0;
 bool cmd_number_neg = false;
 
-#define ANIMATION0_TRILOOP 0
+#define ANIMATION0_LEDMAP 0
 #define ANIMATION1_NONE 1
-#define ANIMATION2_LEDMAP 2
+#define ANIMATION2_TRILOOP 2
 #define ANIMATION3_SWIRL2 3
 #define ANIMATION4_SWIRL 4
 #define ANIMATION5_HEMISPHERE 5
+#define ANIMATION6_LAST 6 /* forwards to ANIMATION2_TRILOOP */
 
 unsigned animation = ANIMATION3_SWIRL2;
 unsigned last_animation = ~0;
 unsigned num_pins = 7;
 
-static
+
 void help(void) {
 	Serial.println("\nIkosaeder controller.");
 
@@ -465,11 +470,12 @@ void help(void) {
 	delay(200);
 	Serial.println("[<in_out mask>,]<lo_hi mask>t : Set tri-state");
 	Serial.println("<row>,<mask>m : led map");
+	Serial.println("<id>|{<row>,<bit>}{l|L} : led map l:on L:off");
 	Serial.println("<delay>d : delay for each led map row");
 	Serial.println("<delay>S : Swirl delay");
 }
 
-static
+
 void set_or_query_param(unsigned &param, char cmd) {
 	if (cmd_numbers) {
 		// Set
@@ -481,7 +487,6 @@ void set_or_query_param(unsigned &param, char cmd) {
 }
 
 
-static
 void SerialComm(void) {
 	while (Serial.available()) {
 		bool number_cmd = false;
@@ -520,9 +525,24 @@ void SerialComm(void) {
 		case 'm': // set map <row>, <mask>
 			if (cmd_numbers) {
 				led_map_set(cmd_number[0], cmd_number[1]);
-				animation = ANIMATION2_LEDMAP;
+				animation = ANIMATION0_LEDMAP;
 			} else {
 				// dump map
+				led_map_dump();
+			}
+			break;
+		case 'l':
+		case 'L':
+			switch (cmd_numbers) {
+			case 1:
+				// set map <id>
+				led_map_led_set(cmd_number[0], cmd == 'l');
+				break;
+			case 2:
+				// set map <row>, <bit>
+				led_map_led_set2(cmd_number[0], cmd_number[1], cmd == 'l');
+				break;
+			default:
 				led_map_dump();
 			}
 			break;
@@ -618,15 +638,15 @@ void loop() {
 
 	// Run animation
 	switch (animation) {
-	case ANIMATION0_TRILOOP:
-		tri_loop(num_pins);
+	case ANIMATION0_LEDMAP:
+		// Static led map
+		led_map_step();
 		break;
 	case ANIMATION1_NONE:
 		// Nothing. Keep state.
 		break;
-	case ANIMATION2_LEDMAP:
-		// Static led map
-		led_map_step();
+	case ANIMATION2_TRILOOP:
+		tri_loop(num_pins);
 		break;
 	case ANIMATION3_SWIRL2:
 		swirl2_step();
@@ -643,8 +663,10 @@ void loop() {
 	default:
 		Serial.print("\"Unknown animation ");
 		Serial.print(animation);
-		Serial.println(". Using 0 now.\"");
-		animation = ANIMATION0_TRILOOP;
+		Serial.println(". Using 2 now.\"");
+		// fall through
+	case ANIMATION6_LAST:
+		animation = ANIMATION2_TRILOOP;
 		break;
 	}
 
@@ -655,3 +677,10 @@ void loop() {
 	PushButtonComm();
 	autooff_check();
 }
+
+
+/*
+ * Local Variables:
+ *  compile-command: "arduino --upload --preserve-temp-files -v Ikosaeder.ino"
+ * End:
+ */
