@@ -4,7 +4,7 @@
 //
 // With (D7 D6 D5 D4 D3 D2 D9 D8)
 // build a lo, hi, tri-state matrix.
-// (Ikosaeder uses only 7 bits: (0 D6 D5 D4 D3 D2 D9 D8)
+// (Ikosaeder2 uses only 6 bits (bit 7..2): (D7 D6 D5 D4 D3 D2 (D9) (D8))
 //
 // D10: Animation switcher.
 //      Input, pull up switch. Connect to GND.
@@ -160,49 +160,43 @@ void led_map_led_set(uint8_t led_id, bool on = true) {
 	static struct Mapping {
 		unsigned row : 3;
 		unsigned bit : 3;
-	} mapping[42] = {
-		{1, 6}, // 0  // level 2 x
-		{6, 2}, // 1  // level 4 x
-		{0, 1}, // 2  // level 1 x
-		{1, 3}, // 3  // level 2 x
-		{2, 1}, // 4  // level 3 x
-		{3, 2}, // 5  // level 3 x
-		{2, 5}, // 6  // level 4 x
-		{2, 3}, // 7  // level 5 x
-		{6, 3}, // 8  // level 2 x
-		{5, 6}, // 9  // level 4 x
-		{3, 0}, // 10 // level 1 x
-		{3, 1}, // 11 // level 2 x
-		{5, 3}, // 12 // level 3 x
-		{1, 5}, // 13 // level 3 x
-		{5, 4}, // 14 // level 4 x
-		{3, 5}, // 15 // level 5 x
-		{6, 1}, // 16 // level 2 x
-		{4, 6}, // 17 // level 4 x
-		{1, 0}, // 18 // level 1 x
-		{5, 1}, // 19 // level 2 x
-		{1, 4}, // 20 // level 3 x
-		{4, 5}, // 21 // level 3 x
-		{0, 4}, // 22 // level 4 x
-		{4, 3}, // 23 // level 5 x
-		{6, 5}, // 24 // level 2 x
-		{6, 0}, // 25 // level 4 x
-		{0, 5}, // 26 // level 1 x
-		{5, 2}, // 27 // level 2 x
-		{5, 0}, // 28 // level 3 x
-		{0, 2}, // 29 // level 3 x
-		{4, 0}, // 30 // level 4 x
-		{0, 3}, // 31 // level 5 x
-		{2, 6}, // 32 // level 2 x
-		{6, 4}, // 33 // level 4 x
-		{2, 0}, // 34 // level 1 x
-		{1, 2}, // 35 // level 2 x
-		{2, 4}, // 36 // level 3 x
-		{4, 1}, // 37 // level 3 x
-		{4, 2}, // 38 // level 4 x
-		{3, 4}, // 39 // level 5 x
-		{0, 6}, // 40 // level 0 x
-		{3, 6}, // 41 // level 6 x
+	} mapping[30] = {
+		{3, 2}, // 0  // level 0 x
+		{4, 3}, // 1  // level 0 x
+		{2, 4}, // 2  // level 0 x
+
+		{6, 2}, // 3  // level 1 x
+		{6, 3}, // 4  // level 1 x
+		{7, 3}, // 5  // level 1 x
+		{7, 4}, // 6  // level 1 x
+		{5, 4}, // 7  // level 1 x
+		{5, 2}, // 8  // level 1 x
+
+		{2, 3}, // 9  // level 2 x
+		{3, 4}, // 10 // level 2 x
+		{4, 2}, // 11 // level 2 x
+
+		{4, 6}, // 12 // level 3 x
+		{4, 7}, // 13 // level 3 x
+		{2, 7}, // 14 // level 3 x
+		{2, 5}, // 15 // level 3 x
+		{3, 5}, // 16 // level 3 x
+		{3, 6}, // 17 // level 3 x
+
+		{6, 5}, // 18 // level 4 x
+		{7, 6}, // 19 // level 4 x
+		{5, 7}, // 20 // level 4 x
+
+		{6, 4}, // 21 // level 5 x
+		{2, 6}, // 22 // level 5 x
+		{7, 2}, // 23 // level 5 x
+		{3, 7}, // 24 // level 5 x
+		{5, 3}, // 25 // level 5 x
+		{4, 5}, // 26 // level 5 x
+
+		{5, 6}, // 27 // level 6 x
+		{6, 7}, // 28 // level 6 x
+		{7, 5}, // 29 // level 6 x
 	};
 
 #ifdef HOST_TEST
@@ -375,6 +369,24 @@ void swirl2_step(void) {
 
 
 /*
+ * Loop through led ids
+ */
+void count_step(void) {
+	static unsigned long last = 0;
+	unsigned long now = millis();
+
+	if (now - last < swirl_speed) return;
+	last = now;
+
+	static uint8_t count = 0;
+
+	led_map_led_set(count % 30, count < 30);
+	count++;
+	if (count == 60) count = 0;
+}
+
+
+/*
  * swinging hemisphere
  */
 struct XYZ {
@@ -447,17 +459,20 @@ int cmd_number[CMD_MAX_NUMBERS];
 uint8_t cmd_numbers = 0;
 bool cmd_number_neg = false;
 
-#define ANIMATION0_LEDMAP 0
-#define ANIMATION1_NONE 1
-#define ANIMATION2_TRILOOP 2
-#define ANIMATION3_SWIRL2 3
-#define ANIMATION4_SWIRL 4
-#define ANIMATION5_HEMISPHERE 5
-#define ANIMATION6_LAST 6 /* forwards to ANIMATION2_TRILOOP */
+#define ANIMATION_LEDMAP 0
+#define ANIMATION_NONE 1
 
-unsigned animation = ANIMATION3_SWIRL2;
+#define ANIMATION_START ANIMATION_COUNT
+#define ANIMATION_COUNT 2
+#define ANIMATION_TRILOOP 3
+#define ANIMATION_SWIRL2 4
+#define ANIMATION_SWIRL 5
+#define ANIMATION_HEMISPHERE 6
+#define ANIMATION_LAST ANIMATION_HEMISPHERE
+
+unsigned animation = ANIMATION_START;
 unsigned last_animation = ~0;
-unsigned num_pins = 7;
+unsigned num_pins = 8;
 
 
 void help(void) {
@@ -506,7 +521,7 @@ void SerialComm(void) {
 			} else {
 				set_tri(0, 0); // All input. (Switch off)
 			}
-			animation = ANIMATION1_NONE;
+			animation = ANIMATION_NONE;
 			break;
 		case 'c':
 		case 'S': // swirl speed
@@ -514,7 +529,7 @@ void SerialComm(void) {
 			break;
 		case 't':
 			set_tri(cmd_number[1], cmd_number[0]);
-			animation = ANIMATION1_NONE;
+			animation = ANIMATION_NONE;
 			break;
 		case '#': // Num pins
 			set_or_query_param(num_pins, '#');
@@ -525,7 +540,7 @@ void SerialComm(void) {
 		case 'm': // set map <row>, <mask>
 			if (cmd_numbers) {
 				led_map_set(cmd_number[0], cmd_number[1]);
-				animation = ANIMATION0_LEDMAP;
+				animation = ANIMATION_LEDMAP;
 			} else {
 				// dump map
 				led_map_dump();
@@ -537,10 +552,12 @@ void SerialComm(void) {
 			case 1:
 				// set map <id>
 				led_map_led_set(cmd_number[0], cmd == 'l');
+				animation = ANIMATION_LEDMAP;
 				break;
 			case 2:
 				// set map <row>, <bit>
 				led_map_led_set2(cmd_number[0], cmd_number[1], cmd == 'l');
+				animation = ANIMATION_LEDMAP;
 				break;
 			default:
 				led_map_dump();
@@ -630,7 +647,7 @@ void loop() {
 	// Initialize new animation?
 	if (last_animation != animation) {
 		switch (animation) {
-		case ANIMATION3_SWIRL2:
+		case ANIMATION_SWIRL2:
 			swirl2_init();
 			break;
 		}
@@ -638,25 +655,29 @@ void loop() {
 
 	// Run animation
 	switch (animation) {
-	case ANIMATION0_LEDMAP:
+	case ANIMATION_LEDMAP:
 		// Static led map
 		led_map_step();
 		break;
-	case ANIMATION1_NONE:
+	case ANIMATION_NONE:
 		// Nothing. Keep state.
 		break;
-	case ANIMATION2_TRILOOP:
+	case ANIMATION_COUNT:
+		count_step();
+		led_map_step();
+		break;
+	case ANIMATION_TRILOOP:
 		tri_loop(num_pins);
 		break;
-	case ANIMATION3_SWIRL2:
+	case ANIMATION_SWIRL2:
 		swirl2_step();
 		led_map_step();
 		break;
-	case ANIMATION4_SWIRL:
+	case ANIMATION_SWIRL:
 		swirl_step();
 		led_map_step();
 		break;
-	case ANIMATION5_HEMISPHERE:
+	case ANIMATION_HEMISPHERE:
 		hemisphere_step();
 		led_map_step();
 		break;
@@ -665,8 +686,8 @@ void loop() {
 		Serial.print(animation);
 		Serial.println(". Using 2 now.\"");
 		// fall through
-	case ANIMATION6_LAST:
-		animation = ANIMATION2_TRILOOP;
+	case ANIMATION_LAST + 1:
+		animation = ANIMATION_START;
 		break;
 	}
 
