@@ -174,14 +174,15 @@ void led_map_led_set(uint8_t led_id, bool on = true) {
 		{6, 3}, // 9  // level 1
 
 		{7, 3}, // 10 // level 2 r
-		{7, 4}, // 11 // level 2 l
 		{4, 2}, // 12 // level 2 r
-		{2, 5}, // 13 // level 2 l
 		{5, 7}, // 14 // level 2 r
-		{3, 7}, // 15 // level 2 l
 		{5, 3}, // 16 // level 2 r
-		{6, 5}, // 17 // level 2 l
 		{4, 6}, // 18 // level 2 r
+
+		{7, 4}, // 11 // level 2 l
+		{2, 5}, // 13 // level 2 l
+		{3, 7}, // 15 // level 2 l
+		{6, 5}, // 17 // level 2 l
 		{3, 4}, // 19 // level 2 l
 
 		{4, 7}, // 20 // level 3
@@ -376,11 +377,27 @@ void count_step(void) {
 	if (now - last < swirl_speed) return;
 	last = now;
 
-	static uint8_t count = 0;
+	static struct {
+		uint8_t count : 5;
+		uint8_t on : 1;
+	} state = { 0, 0 };
 
-	led_map_led_set(count % 30, count < 30);
-	count++;
-	if (count == 60) count = 0;
+	led_map_led_set(state.count, state.on);
+
+	// Count level 2 differently:
+	//  0, 1, 2, 3, 4, 5, 6, 7, 8, 9
+	// 10,15,11,16,12,17,13,18,14,19,
+	// 20,21,22,23,24,25,26,27,28,29
+	static const uint8_t next[] = {
+		1, 2, 3, 4, 5, 6, 7, 8, 9,
+		10,15,16,17,18,19,11,12,13,14,
+		20,21,22,23,24,25,26,27,28,29,0
+	};
+	state.count = next[state.count];
+
+	if (state.count == 0) {
+		state.on = !state.on;
+	}
 }
 
 
