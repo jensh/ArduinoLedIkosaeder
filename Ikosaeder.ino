@@ -236,7 +236,7 @@ void led_map_dump() {
  * get_peer functions:
  */
 
-static const level_dpos_dir_t peer_d[][4] = {
+static const level_dpos_dir_t peer_d[][4] PROGMEM = {
 	{ {1, 0, 1}, {0, 1, 0}, {0, 4, 3}, {1, 4, 0}},
 	{ {2, 0, 3}, {3, 0, 0}, {0, 1, 1}, {0, 0, 2}},
 	{ {3, 0, 1}, {1, 0, 2}, {3, 4, 3}, {4, 0, 0}},
@@ -250,7 +250,10 @@ static const level_dpos_dir_t peer_d[][4] = {
 id_dir_t get_peer(uint8_t id, uint8_t dir) {
 	uint8_t level = id / 5;
 	uint8_t pos = id % 5;
-	level_dpos_dir_t ldpd = peer_d[level][dir];
+	byte ldpd_b = pgm_read_byte(&peer_d[level][dir]);
+	level_dpos_dir_t ldpd;// = *((level_dpos_dir_t*)(void*)(&ldpd_b));
+	memcpy(&ldpd, &ldpd_b, sizeof(ldpd));
+
 	uint8_t nlevel = ldpd.level;
 	uint8_t npos = (pos + ldpd.dpos) % 5;
 	uint8_t nid = nlevel * 5 + npos;
