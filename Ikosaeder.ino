@@ -16,6 +16,20 @@
 #define PIN10_ANIMATION	10 /* In: Animation switch and power on */
 #define AUTOOFF_DELAY_MS 60000 /* auto power off after this time */
 
+
+typedef struct {
+	unsigned level : 3;
+	unsigned dpos : 3;
+	unsigned dir : 2;
+} level_dpos_dir_t;
+
+
+typedef struct {
+	unsigned id : 6;
+	unsigned dir : 2;
+} id_dir_t;
+
+
 void setup() {
 	// Setup D2 - D9 as Input
 	for (int8_t i = 2; i <= 9; i++) {
@@ -222,52 +236,37 @@ void led_map_dump() {
  * get_peer functions:
  */
 
-static const struct {
-	unsigned level : 3;
-	unsigned dpos : 3;
-} peer_d[][4] = {
-	{ {1, 0}, {0, 1}, {0, 4}, {1, 4}},
-	{ {2, 0}, {3, 0}, {0, 1}, {0, 0}},
-	{ {3, 0}, {1, 0}, {3, 4}, {4, 0}},
+static const level_dpos_dir_t peer_d[][4] = {
+	{ {1, 0, 1}, {0, 1, 0}, {0, 4, 3}, {1, 4, 0}},
+	{ {2, 0, 3}, {3, 0, 0}, {0, 1, 1}, {0, 0, 2}},
+	{ {3, 0, 1}, {1, 0, 2}, {3, 4, 3}, {4, 0, 0}},
 
-	{ {4, 1}, {2, 1}, {1, 0}, {2, 0}},
-	{ {5, 4}, {5, 0}, {2, 0}, {3, 4}},
-	{ {5, 1}, {4, 1}, {4, 0}, {5, 4}}
+	{ {4, 1, 1}, {2, 1, 0}, {1, 0, 3}, {2, 0, 2}},
+	{ {5, 4, 3}, {5, 0, 0}, {2, 0, 1}, {3, 4, 2}},
+	{ {5, 1, 1}, {4, 1, 2}, {4, 0, 3}, {5, 4, 2}}
 };
 
 
-uint8_t get_peer(uint8_t id, uint8_t dir) {
+id_dir_t get_peer(uint8_t id, uint8_t dir) {
 	uint8_t level = id / 5;
 	uint8_t pos = id % 5;
-	uint8_t nlevel = peer_d[level][dir].level;
-	uint8_t npos = (pos + peer_d[level][dir].dpos) % 5;
-
-	return nlevel * 5 + npos;
-}
-
-uint8_t get_peer_dir(uint8_t id, uint8_t dir) {
-	static uint8_t dirs[][4] = {
-		{ 1, 0, 3, 0 } ,
-		{ 3, 0, 1, 2 } ,
-		{ 1, 2, 3, 0 } ,
-		{ 1, 0, 3, 2 } ,
-		{ 3, 0, 1, 2 } ,
-		{ 1, 2, 3, 2 }
+	level_dpos_dir_t ldpd = peer_d[level][dir];
+	uint8_t nlevel = ldpd.level;
+	uint8_t npos = (pos + ldpd.dpos) % 5;
+	uint8_t nid = nlevel * 5 + npos;
+	id_dir_t id_dir = {
+		.id = nid,
+		.dir = ldpd.dir
 	};
-	uint8_t level = id / 5;
-
-	return dirs[level][dir];
+	return id_dir;
 }
 
 
 class Walker {
 public:
-	uint8_t cur_id;
-	uint8_t cur_dir;
+	id_dir_t cur;
 
-	Walker() {
-		cur_id = 0;
-		cur_dir = 0;
+	Walker() : cur({ 0, 0 }) {
 	}
 
 	/* Step in direction @dir.
@@ -277,18 +276,15 @@ public:
 	 * 3: turn backward
 	 */
 	void step(uint8_t dir) {
-		uint8_t c_id = cur_id;
+		uint8_t c_id = cur.id;
+		uint8_t abs_dir = (cur.dir + dir +
+				   (cur.dir & dir & 1) * 2) % 4;
 
-
-		uint8_t abs_dir = (cur_dir + dir +
-				   (cur_dir & dir & 1) * 2) % 4;
-
-		cur_id = get_peer(c_id, abs_dir);
-		cur_dir = get_peer_dir(c_id, abs_dir);
+		cur = get_peer(c_id, abs_dir);
 	}
 
 	void show(bool visible = true) {
-		led_map_led_set(cur_id, visible);
+		led_map_led_set(cur.id, visible);
 	}
 };
 
@@ -337,7 +333,7 @@ void swirl2_step(void) {
 	walker.show();
 
 	// set head of tail
-	tail[pos] = walker.cur_id;
+	tail[pos] = walker.cur.id;
 
 	// progress
 	pos = (pos + 1) % tail_size;
