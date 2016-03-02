@@ -109,8 +109,9 @@ void blink_hi_lo() {
 
 // Switch on @led. Using @nbits Pins.
 void set_tri_led(uint8_t nbits, int led) {
-	uint8_t lo_bit = led / (nbits - 1);
-	uint8_t hi_bit = (led + lo_bit) % (nbits - 1);
+	const int off = 2;
+	uint8_t lo_bit = off + led / (nbits - 1);
+	uint8_t hi_bit = off + (led + lo_bit) % (nbits - 1);
 	if (hi_bit >= lo_bit) hi_bit++;
 
 	// bit pos to bitmask:
@@ -122,7 +123,8 @@ void set_tri_led(uint8_t nbits, int led) {
 }
 
 
-void tri_loop(uint8_t nbits) {
+void tri_loop(void) {
+	const int nbits = 6;
 	int count = nbits * (nbits - 1);
 	int i;
 	for (i = 0; i < count; i++) {
@@ -658,7 +660,7 @@ void loop() {
 		led_map_step();
 		break;
 	case ANIMATION_TRILOOP:
-		tri_loop(num_pins);
+		tri_loop();
 		break;
 	case ANIMATION_SWIRL2:
 		swirl2_step();
