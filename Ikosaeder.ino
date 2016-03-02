@@ -161,42 +161,40 @@ void led_map_led_set(uint8_t led_id, bool on = true) {
 		unsigned row : 3;
 		unsigned bit : 3;
 	} mapping[30] = {
-		{3, 2}, // 0  // level 0 x
-		{4, 3}, // 1  // level 0 x
-		{2, 4}, // 2  // level 0 x
+		{3, 2}, // 0  // level 0
+		{2, 4}, // 1  // level 0
+		{5, 2}, // 2  // level 0
+		{2, 3}, // 3  // level 0
+		{6, 2}, // 4  // level 0
 
-		{6, 2}, // 3  // level 1 x
-		{6, 3}, // 4  // level 1 x
-		{7, 3}, // 5  // level 1 x
-		{7, 4}, // 6  // level 1 x
-		{5, 4}, // 7  // level 1 x
-		{5, 2}, // 8  // level 1 x
+		{4, 3}, // 5  // level 1
+		{5, 4}, // 6  // level 1
+		{3, 5}, // 7  // level 1
+		{3, 6}, // 8  // level 1
+		{6, 3}, // 9  // level 1
 
-		{2, 3}, // 9  // level 2 x
-		{3, 4}, // 10 // level 2 x
-		{4, 2}, // 11 // level 2 x
+		{7, 3}, // 10 // level 2 r
+		{7, 4}, // 11 // level 2 l
+		{4, 2}, // 12 // level 2 r
+		{2, 5}, // 13 // level 2 l
+		{5, 7}, // 14 // level 2 r
+		{3, 7}, // 15 // level 2 l
+		{5, 3}, // 16 // level 2 r
+		{6, 5}, // 17 // level 2 l
+		{4, 6}, // 18 // level 2 r
+		{3, 4}, // 19 // level 2 l
 
-		{4, 6}, // 12 // level 3 x
-		{4, 7}, // 13 // level 3 x
-		{2, 7}, // 14 // level 3 x
-		{2, 5}, // 15 // level 3 x
-		{3, 5}, // 16 // level 3 x
-		{3, 6}, // 17 // level 3 x
+		{4, 7}, // 20 // level 3
+		{2, 7}, // 21 // level 3
+		{7, 2}, // 22 // level 3
+		{7, 5}, // 23 // level 3
+		{4, 5}, // 24 // level 3
 
-		{6, 5}, // 18 // level 4 x
-		{7, 6}, // 19 // level 4 x
-		{5, 7}, // 20 // level 4 x
-
-		{6, 4}, // 21 // level 5 x
-		{2, 6}, // 22 // level 5 x
-		{7, 2}, // 23 // level 5 x
-		{3, 7}, // 24 // level 5 x
-		{5, 3}, // 25 // level 5 x
-		{4, 5}, // 26 // level 5 x
-
-		{5, 6}, // 27 // level 6 x
-		{6, 7}, // 28 // level 6 x
-		{7, 5}, // 29 // level 6 x
+		{7, 6}, // 25 // level 4
+		{2, 6}, // 26 // level 4
+		{6, 7}, // 27 // level 4
+		{5, 6}, // 28 // level 4
+		{6, 4}, // 29 // level 4
 	};
 
 #ifdef HOST_TEST
