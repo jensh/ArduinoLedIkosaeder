@@ -221,59 +221,42 @@ void led_map_dump() {
 /*
  * get_peer functions:
  */
-uint8_t get_peer_count(uint8_t id) {
-	return (id % 8 < 2) ? 5 : 6;
-}
+
+static const struct {
+	unsigned level : 3;
+	unsigned dpos : 3;
+} peer_d[][4] = {
+	{ {1, 0}, {0, 1}, {0, 4}, {1, 4}},
+	{ {2, 0}, {3, 0}, {0, 1}, {0, 0}},
+	{ {3, 0}, {1, 0}, {3, 4}, {4, 0}},
+
+	{ {4, 1}, {2, 1}, {1, 0}, {2, 0}},
+	{ {5, 4}, {5, 0}, {2, 0}, {3, 4}},
+	{ {5, 1}, {4, 1}, {4, 0}, {5, 4}}
+};
+
 
 uint8_t get_peer(uint8_t id, uint8_t dir) {
-	static uint8_t num3_peers_a[][6] = {
-		{ 2, 3, 4, 5+32, 3+32 }, // 0
-		{ 4, 5, 6, 7, 6+32 }, // 1
-		{ 40, 2+8, 3, 0, 3+32, 2+32 }, // 2
-		{ 2, 2+8, 0+8, 5, 4, 0 }, // 3
-		{ 0, 3, 5, 1, 6+32, 5+32 }, // 4
-		{ 3, 0+8, 4+8, 6, 1, 4 }, // 5
-		{ 5, 4+8, 1+8, 7+8, 7, 1 }, // 6
-		{ 41, 7+32, 6+32, 1, 6, 7+8 } // 7
-	};
+	uint8_t level = id / 5;
+	uint8_t pos = id % 5;
+	uint8_t nlevel = peer_d[level][dir].level;
+	uint8_t npos = (pos + peer_d[level][dir].dpos) % 5;
 
-	switch (id) {
-	case 40: return (2 + 32) - dir * 8;
-	case 41: return 7 + dir * 8;
-	default:
-		uint8_t sid = id % 8; // 0..7
-		uint8_t grp = (id - sid); // 0,8,16,24,32
-		uint8_t res = num3_peers_a[sid][dir];
-		if (res < 40) res = (res + grp) % 40;
-		return res;
-	}
+	return nlevel * 5 + npos;
 }
 
-
 uint8_t get_peer_dir(uint8_t id, uint8_t dir) {
-	static uint8_t dirs[][6] = {
-		{ 3, 5, 0, 1, 2 } ,
-		{ 3, 4, 5, 3, 2 } ,
-		{ 6 /* marker */, 5, 0, 0, 1, 1 } ,
-		{ 2, 4, 4, 0, 1, 1 } ,
-		{ 2, 4, 5, 0, 1, 2 } ,
-		{ 3, 3, 5, 0, 1, 2 } ,
-		{ 3, 4, 4, 2, 4, 2 } ,
-		{ 6 /* marker */, 5, 3, 3, 4, 1 } ,
+	static uint8_t dirs[][4] = {
+		{ 1, 0, 3, 0 } ,
+		{ 3, 0, 1, 2 } ,
+		{ 1, 2, 3, 0 } ,
+		{ 1, 0, 3, 2 } ,
+		{ 3, 0, 1, 2 } ,
+		{ 1, 2, 3, 2 }
 	};
+	uint8_t level = id / 5;
 
-	switch (id) {
-	case 40:
-	case 41: return 0;
-	default:
-		uint8_t sid = id % 8; // 0..7
-		uint8_t res = dirs[sid][dir];
-		if (res == 6) {
-			uint8_t grpidx = id / 8; // group index 0..4
-			res = (sid == 2) ? 4 - grpidx : grpidx;
-		}
-		return res;
-	}
+	return dirs[level][dir];
 }
 
 
@@ -288,23 +271,17 @@ public:
 	}
 
 	/* Step in direction @dir.
-	 * 0: back,
-	 * On 5 node edges:
-	 * 1: back right
-	 * 2: forward right
-	 * 3: forward left
-	 * 4: back left
-	 * On 6 node edges:
-	 * 1: back right
-	 * 2: forward right
-	 * 3: forward
-	 * 4: forward left
-	 * 5: backward left */
+	 * 0: forward
+	 * 1: turn forward, (left if coming from 0 or 2, right if coming from 1 or 3)
+	 * 2: backward,
+	 * 3: turn backward
+	 */
 	void step(uint8_t dir) {
 		uint8_t c_id = cur_id;
-		uint8_t peer_count = get_peer_count(c_id);
 
-		uint8_t abs_dir = (cur_dir + dir) % peer_count;
+
+		uint8_t abs_dir = (cur_dir + dir +
+				   (cur_dir & dir & 1) * 2) % 4;
 
 		cur_id = get_peer(c_id, abs_dir);
 		cur_dir = get_peer_dir(c_id, abs_dir);
@@ -329,7 +306,7 @@ void swirl_step(void) {
 
 	static Walker walker;
 
-	walker.step(3 - (random(7) == 0 ? 1 : 0));
+	walker.step(random(7) == 0 ? 1 : 0);
 	walker.show();
 }
 
@@ -356,7 +333,7 @@ void swirl2_step(void) {
 	led_map_led_set(tail[pos], false);
 
 	// next step show
-	walker.step(3 - (random(7) == 0 ? 1 : 0));
+	walker.step(random(7) == 0 ? 1 : 0);
 	walker.show();
 
 	// set head of tail
@@ -485,7 +462,7 @@ bool cmd_number_neg = false;
 #define ANIMATION_HEMISPHERE 6
 #define ANIMATION_LAST ANIMATION_HEMISPHERE
 
-unsigned animation = ANIMATION_START;
+unsigned animation = ANIMATION_SWIRL2;
 unsigned last_animation = ~0;
 unsigned num_pins = 8;
 
