@@ -15,7 +15,7 @@
 #define PIN11_POWER	11 /* Out: Power switch for auto off */
 #define PIN10_ANIMATION	10 /* In: Animation switch and power on */
 #define AUTOOFF_DELAY_MS 60000 /* auto power off after this time */
-
+#define ANIMATION_DURATION 15000 /* duration of an animation, if animation_autoinc is true */
 
 typedef struct {
 	unsigned level : 3;
@@ -487,16 +487,19 @@ bool cmd_number_neg = false;
 #define ANIMATION_HEMISPHERE 6
 #define ANIMATION_LAST ANIMATION_HEMISPHERE
 
+#define ANIMATION_AUTOINC 100 /* enable autoinc, keep current animation */
+
 unsigned animation = ANIMATION_SWIRL2;
 unsigned last_animation = ~0;
 unsigned num_pins = 8;
+bool animation_autoinc = true;
 
 
 void help(void) {
 	Serial.println("\nIkosaeder controller.");
 
 	Serial.println("? : Help");
-	Serial.println("<num>a : Set animation");
+	Serial.println("<num>a : Set animation (100=auto)");
 	Serial.println("<led number>s : Switch on led");
 	Serial.println("[<num>]# : number of used pins for s");
 	delay(200);
@@ -508,13 +511,37 @@ void help(void) {
 }
 
 
-void set_or_query_param(unsigned &param, char cmd) {
+bool set_or_query_param(unsigned &param, char cmd) {
 	if (cmd_numbers) {
 		// Set
 		param = cmd_number[0];
+		return true;
 	} else {
 		// Query
 		Serial.print(param); Serial.write(cmd);
+		return false;
+	}
+}
+
+
+/*
+ * Animation auto increment
+ */
+void animation_autoinc_step(void) {
+	static unsigned long last = 0;
+	unsigned long now = millis();
+
+	if (now - last < ANIMATION_DURATION) return;
+	last = now;
+
+	animation++;
+}
+
+
+void animation_set(unsigned aanimation) {
+	animation_autoinc = (aanimation == ANIMATION_AUTOINC);
+	if (!animation_autoinc) {
+		animation = aanimation;
 	}
 }
 
@@ -523,6 +550,7 @@ void SerialComm(void) {
 	while (Serial.available()) {
 		bool number_cmd = false;
 		uint8_t cmd;
+		unsigned param;
 
 		autooff_ping();
 
@@ -530,7 +558,10 @@ void SerialComm(void) {
 
 		switch (cmd) {
 		case 'a': // Animation cmd_number
-			set_or_query_param(animation, 'a');
+			param = animation;
+			if (set_or_query_param(param, 'a')) {
+				animation_set(param);
+			}
 			break;
 		case 's':
 			if (cmd_numbers) {
@@ -538,7 +569,7 @@ void SerialComm(void) {
 			} else {
 				set_tri(0, 0); // All input. (Switch off)
 			}
-			animation = ANIMATION_NONE;
+			animation_set(ANIMATION_NONE);
 			break;
 		case 'c':
 		case 'S': // swirl speed
@@ -546,7 +577,7 @@ void SerialComm(void) {
 			break;
 		case 't':
 			set_tri(cmd_number[1], cmd_number[0]);
-			animation = ANIMATION_NONE;
+			animation_set(ANIMATION_NONE);
 			break;
 		case '#': // Num pins
 			set_or_query_param(num_pins, '#');
@@ -557,7 +588,7 @@ void SerialComm(void) {
 		case 'm': // set map <row>, <mask>
 			if (cmd_numbers) {
 				led_map_set(cmd_number[0], cmd_number[1]);
-				animation = ANIMATION_LEDMAP;
+				animation_set(ANIMATION_LEDMAP);
 			} else {
 				// dump map
 				led_map_dump();
@@ -569,12 +600,12 @@ void SerialComm(void) {
 			case 1:
 				// set map <id>
 				led_map_led_set(cmd_number[0], cmd == 'l');
-				animation = ANIMATION_LEDMAP;
+				animation_set(ANIMATION_LEDMAP);
 				break;
 			case 2:
 				// set map <row>, <bit>
 				led_map_led_set2(cmd_number[0], cmd_number[1], cmd == 'l');
-				animation = ANIMATION_LEDMAP;
+				animation_set(ANIMATION_LEDMAP);
 				break;
 			default:
 				led_map_dump();
@@ -652,8 +683,15 @@ void SerialComm(void) {
 
 void PushButtonComm(void) {
 	if (!digitalRead(PIN10_ANIMATION)) {
-		animation++;
 		autooff_ping();
+		if (animation != ANIMATION_LAST || animation_autoinc) {
+			animation_set(animation + 1);
+		} else {
+			animation_set(ANIMATION_AUTOINC);
+			for (int i = 0; i < 3; i++) {
+				tri_loop();
+			}
+		}
 		// poor man's debounce
 		delay(300);
 	}
@@ -713,6 +751,7 @@ void loop() {
 	// Process commands
 	SerialComm();
 	PushButtonComm();
+	if (animation_autoinc) animation_autoinc_step();
 	autooff_check();
 }
 
