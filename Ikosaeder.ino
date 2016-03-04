@@ -8,6 +8,7 @@
 //
 // D10: Animation switcher.
 //      Input, pull up switch. Connect to GND.
+//      long press: stay on for 10min instead of 1min
 // D11: Power output. HIGH: on, LOW: off (Auto off feature)
 
 #ifndef HOST_TEST
@@ -15,6 +16,7 @@
 #define PIN11_POWER	11 /* Out: Power switch for auto off */
 #define PIN10_ANIMATION	10 /* In: Animation switch and power on */
 #define AUTOOFF_DELAY_MS 60000 /* auto power off after this time */
+#define AUTOOFF_DELAY_LONG_MS 600000 /* auto power off after this time */
 #define ANIMATION_DURATION 15000 /* duration of an animation, if animation_autoinc is true */
 
 
@@ -38,11 +40,12 @@ void setup() {
  */
 static
 unsigned long autooff_at_ms = 0;
+unsigned long autooff_delay_ms = AUTOOFF_DELAY_MS;
 
 
-// Keep alive ping. Stay on for further AUTOOFF_DELAY_MS ms.
+// Keep alive ping. Stay on for further autooff_delay_ms ms.
 void autooff_ping(void) {
-	autooff_at_ms = millis() + AUTOOFF_DELAY_MS;
+	autooff_at_ms = millis() + autooff_delay_ms;
 }
 
 
@@ -63,7 +66,7 @@ void autooff_off(void) {
 // Check for timeout to power off.
 void autooff_check(void) {
 	// Timeout to auto power off? Unsigned long calculation!
-	if (autooff_at_ms - millis() >= (unsigned long) AUTOOFF_DELAY_MS) {
+	if (autooff_at_ms - millis() >= autooff_delay_ms) {
 		// Power off, but keep running
 		autooff_off();
 	}
@@ -218,6 +221,11 @@ void led_map_led_set(uint8_t led_id, bool on = true) {
 
 void led_map_clear(void) {
 	for (int i = 0; i < 8; i++) led_map[i] = 0;
+}
+
+
+void led_map_fill(void) {
+	for (int i = 0; i < 8; i++) led_map[i] = 0xff;
 }
 
 
@@ -656,11 +664,21 @@ void SerialComm(void) {
 
 
 void wait_pin10_animation_release(void) {
+	unsigned cnt = 0;
 	while(!digitalRead(PIN10_ANIMATION)) {
-		tri_loop(num_pins);
+		// tri_loop: ~ 42*5ms = 210ms.
+		if (cnt < 10) {
+			cnt++;
+			tri_loop(num_pins);
+		} else {
+			// after ~2.1s switch to AUTOOFF_DELAY_LONG_MS.
+			autooff_delay_ms = AUTOOFF_DELAY_LONG_MS;
+			led_map_fill();
+			led_map_step();
+		}
 	}
 	// poor man's debounce
-	delay(150);
+	delay(100);
 }
 
 
@@ -676,7 +694,7 @@ void PushButtonComm(void) {
 			}
 		}
 		// poor man's debounce
-		delay(150);
+		delay(300);
 		wait_pin10_animation_release();
 	}
 }
