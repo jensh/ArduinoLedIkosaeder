@@ -673,6 +673,7 @@ void wait_pin10_animation_release(void) {
 		} else {
 			// after ~2.1s switch to AUTOOFF_DELAY_LONG_MS and animation_autoinc
 			autooff_delay_ms = AUTOOFF_DELAY_LONG_MS;
+			autooff_ping();
 			animation_autoinc = true;
 			led_map_fill();
 			led_map_step();
