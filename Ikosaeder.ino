@@ -29,6 +29,8 @@ void setup() {
 	Serial.begin(115200);
 	// Serial.begin(9600);
 	help();
+
+	wait_pin10_animation_release();
 }
 
 /*
@@ -451,11 +453,13 @@ bool cmd_number_neg = false;
 
 #define ANIMATION_LEDMAP 0
 #define ANIMATION_NONE 1
+
+#define ANIMATION_START ANIMATION_TRILOOP
 #define ANIMATION_TRILOOP 2
 #define ANIMATION_SWIRL2 3
 #define ANIMATION_SWIRL 4
 #define ANIMATION_HEMISPHERE 5
-#define ANIMATION_LAST 6 /* forwards to ANIMATION2_TRILOOP */
+#define ANIMATION_LAST ANIMATION_HEMISPHERE
 
 #define ANIMATION_AUTOINC 100 /* enable autoinc, keep current animation */
 
@@ -651,6 +655,15 @@ void SerialComm(void) {
 }
 
 
+void wait_pin10_animation_release(void) {
+	while(!digitalRead(PIN10_ANIMATION)) {
+		tri_loop(num_pins);
+	}
+	// poor man's debounce
+	delay(150);
+}
+
+
 void PushButtonComm(void) {
 	if (!digitalRead(PIN10_ANIMATION)) {
 		autooff_ping();
@@ -663,7 +676,8 @@ void PushButtonComm(void) {
 			}
 		}
 		// poor man's debounce
-		delay(300);
+		delay(150);
+		wait_pin10_animation_release();
 	}
 }
 
@@ -707,8 +721,8 @@ void loop() {
 		Serial.print(animation);
 		Serial.println(". Using 2 now.\"");
 		// fall through
-	case ANIMATION_LAST:
-		animation = ANIMATION_TRILOOP;
+	case ANIMATION_LAST + 1:
+		animation = ANIMATION_START;
 		break;
 	}
 
