@@ -15,6 +15,8 @@
 #define PIN11_POWER	11 /* Out: Power switch for auto off */
 #define PIN10_ANIMATION	10 /* In: Animation switch and power on */
 #define AUTOOFF_DELAY_MS 60000 /* auto power off after this time */
+#define ANIMATION_DURATION 15000 /* duration of an animation, if animation_autoinc is true */
+
 
 void setup() {
 	// Setup D2 - D9 as Input
@@ -447,24 +449,27 @@ int cmd_number[CMD_MAX_NUMBERS];
 uint8_t cmd_numbers = 0;
 bool cmd_number_neg = false;
 
-#define ANIMATION0_LEDMAP 0
-#define ANIMATION1_NONE 1
-#define ANIMATION2_TRILOOP 2
-#define ANIMATION3_SWIRL2 3
-#define ANIMATION4_SWIRL 4
-#define ANIMATION5_HEMISPHERE 5
-#define ANIMATION6_LAST 6 /* forwards to ANIMATION2_TRILOOP */
+#define ANIMATION_LEDMAP 0
+#define ANIMATION_NONE 1
+#define ANIMATION_TRILOOP 2
+#define ANIMATION_SWIRL2 3
+#define ANIMATION_SWIRL 4
+#define ANIMATION_HEMISPHERE 5
+#define ANIMATION_LAST 6 /* forwards to ANIMATION2_TRILOOP */
 
-unsigned animation = ANIMATION3_SWIRL2;
+#define ANIMATION_AUTOINC 100 /* enable autoinc, keep current animation */
+
+unsigned animation = ANIMATION_SWIRL2;
 unsigned last_animation = ~0;
 unsigned num_pins = 7;
+bool animation_autoinc = true;
 
 
 void help(void) {
 	Serial.println("\nIkosaeder controller.");
 
 	Serial.println("? : Help");
-	Serial.println("<num>a : Set animation");
+	Serial.println("<num>a : Set animation (100=auto)");
 	Serial.println("<led number>s : Switch on led");
 	Serial.println("[<num>]# : number of used pins for s");
 	delay(200);
@@ -476,13 +481,37 @@ void help(void) {
 }
 
 
-void set_or_query_param(unsigned &param, char cmd) {
+bool set_or_query_param(unsigned &param, char cmd) {
 	if (cmd_numbers) {
 		// Set
 		param = cmd_number[0];
+		return true;
 	} else {
 		// Query
 		Serial.print(param); Serial.write(cmd);
+		return false;
+	}
+}
+
+
+/*
+ * Animation auto increment
+ */
+void animation_autoinc_step(void) {
+	static unsigned long last = 0;
+	unsigned long now = millis();
+
+	if (now - last < ANIMATION_DURATION) return;
+	last = now;
+
+	animation++;
+}
+
+
+void animation_set(unsigned aanimation) {
+	animation_autoinc = (aanimation == ANIMATION_AUTOINC);
+	if (!animation_autoinc) {
+		animation = aanimation;
 	}
 }
 
@@ -491,6 +520,7 @@ void SerialComm(void) {
 	while (Serial.available()) {
 		bool number_cmd = false;
 		uint8_t cmd;
+		unsigned param;
 
 		autooff_ping();
 
@@ -498,7 +528,10 @@ void SerialComm(void) {
 
 		switch (cmd) {
 		case 'a': // Animation cmd_number
-			set_or_query_param(animation, 'a');
+			param = animation;
+			if (set_or_query_param(param, 'a')) {
+				animation_set(param);
+			}
 			break;
 		case 's':
 			if (cmd_numbers) {
@@ -506,7 +539,7 @@ void SerialComm(void) {
 			} else {
 				set_tri(0, 0); // All input. (Switch off)
 			}
-			animation = ANIMATION1_NONE;
+			animation_set(ANIMATION_NONE);
 			break;
 		case 'c':
 		case 'S': // swirl speed
@@ -514,7 +547,7 @@ void SerialComm(void) {
 			break;
 		case 't':
 			set_tri(cmd_number[1], cmd_number[0]);
-			animation = ANIMATION1_NONE;
+			animation_set(ANIMATION_NONE);
 			break;
 		case '#': // Num pins
 			set_or_query_param(num_pins, '#');
@@ -525,7 +558,7 @@ void SerialComm(void) {
 		case 'm': // set map <row>, <mask>
 			if (cmd_numbers) {
 				led_map_set(cmd_number[0], cmd_number[1]);
-				animation = ANIMATION0_LEDMAP;
+				animation_set(ANIMATION_LEDMAP);
 			} else {
 				// dump map
 				led_map_dump();
@@ -537,10 +570,12 @@ void SerialComm(void) {
 			case 1:
 				// set map <id>
 				led_map_led_set(cmd_number[0], cmd == 'l');
+				animation_set(ANIMATION_LEDMAP);
 				break;
 			case 2:
 				// set map <row>, <bit>
 				led_map_led_set2(cmd_number[0], cmd_number[1], cmd == 'l');
+				animation_set(ANIMATION_LEDMAP);
 				break;
 			default:
 				led_map_dump();
@@ -618,8 +653,15 @@ void SerialComm(void) {
 
 void PushButtonComm(void) {
 	if (!digitalRead(PIN10_ANIMATION)) {
-		animation++;
 		autooff_ping();
+		if (animation != ANIMATION_LAST || animation_autoinc) {
+			animation_set(animation + 1);
+		} else {
+			animation_set(ANIMATION_AUTOINC);
+			for (int i = 0; i < 3; i++) {
+				tri_loop(num_pins);
+			}
+		}
 		// poor man's debounce
 		delay(300);
 	}
@@ -630,7 +672,7 @@ void loop() {
 	// Initialize new animation?
 	if (last_animation != animation) {
 		switch (animation) {
-		case ANIMATION3_SWIRL2:
+		case ANIMATION_SWIRL2:
 			swirl2_init();
 			break;
 		}
@@ -638,25 +680,25 @@ void loop() {
 
 	// Run animation
 	switch (animation) {
-	case ANIMATION0_LEDMAP:
+	case ANIMATION_LEDMAP:
 		// Static led map
 		led_map_step();
 		break;
-	case ANIMATION1_NONE:
+	case ANIMATION_NONE:
 		// Nothing. Keep state.
 		break;
-	case ANIMATION2_TRILOOP:
+	case ANIMATION_TRILOOP:
 		tri_loop(num_pins);
 		break;
-	case ANIMATION3_SWIRL2:
+	case ANIMATION_SWIRL2:
 		swirl2_step();
 		led_map_step();
 		break;
-	case ANIMATION4_SWIRL:
+	case ANIMATION_SWIRL:
 		swirl_step();
 		led_map_step();
 		break;
-	case ANIMATION5_HEMISPHERE:
+	case ANIMATION_HEMISPHERE:
 		hemisphere_step();
 		led_map_step();
 		break;
@@ -665,8 +707,8 @@ void loop() {
 		Serial.print(animation);
 		Serial.println(". Using 2 now.\"");
 		// fall through
-	case ANIMATION6_LAST:
-		animation = ANIMATION2_TRILOOP;
+	case ANIMATION_LAST:
+		animation = ANIMATION_TRILOOP;
 		break;
 	}
 
@@ -675,6 +717,7 @@ void loop() {
 	// Process commands
 	SerialComm();
 	PushButtonComm();
+	if (animation_autoinc) animation_autoinc_step();
 	autooff_check();
 }
 
